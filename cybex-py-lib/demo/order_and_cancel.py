@@ -13,8 +13,6 @@ def order_and_cancel():
     
     net = BitShares(node = NODE_WS_ENDPOINT, **{'prefix':'CYB'})
     
-    cybex_network(net)
-    
     unlock(net)
 
     try:
