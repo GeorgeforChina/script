@@ -8,11 +8,13 @@ ENVIRONMENT
 Python2.X is NOT supported.
 We strongly recommend a virtual running enviroment to run your python program to visit cybex.
 You may use the following command to create a virtualenv for python programs.
+
 ```Bash
 virtualenv --no-site-package --python=`which python3` venv
 cd venv
 source ./bin/activate
 ```
+
 More details for virtualenv can be found in virtualenv documentation
 https://virtualenv.pypa.io/en/stable/
 
