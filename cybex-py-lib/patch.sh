@@ -70,7 +70,7 @@ popd 1>/dev/null
 
 if [ "$BTSVER" = "12" ]; then
 cat >$BITSHARES_PATCH_FILE <<EOF
-diff -Nur -x __pycache__ -x 'cybex*' bitshares_old/bitshares.py bitshares/bitshares.py
+diff -Nur -x __pycache__ bitshares_old/bitshares.py bitshares/bitshares.py
 --- bitshares_old/bitshares.py  2018-04-04 15:34:42.952270269 +0800
 +++ bitshares/bitshares.py      2018-04-20 11:33:16.782725243 +0800
 @@ -5,6 +5,7 @@
@@ -101,9 +101,274 @@ diff -Nur -x __pycache__ -x 'cybex*' bitshares_old/bitshares.py bitshares/bitsha
              "prefix": self.prefix
          })
          return self.finalizeOp(op, account, "active", **kwargs)
+diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
+--- bitshares_old/cybexlib.py   1970-01-01 08:00:00.000000000 +0800
++++ bitshares/cybexlib.py       2018-04-20 14:30:14.304833632 +0800
+@@ -0,0 +1,162 @@
++from bitshares import BitShares
++from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
++from bitsharesbase.account import PrivateKey, PublicKey
++from bitsharesbase import transactions, operations
++from bitshares.asset import Asset
++from bitshares.account import Account
++from binascii import hexlify, unhexlify
++from graphenebase.base58 import base58decode,base58encode,doublesha256,ripemd160, Base58
++import hashlib
++
++import logging
++import os
++import getpass
++
++log = logging.getLogger(__name__)
++
++def unlock(inst, *args, **kwargs):
++    if inst.wallet.created():
++        if "UNLOCK" in os.environ:
++            pwd = os.environ["UNLOCK"]
++        else:
++            pwd = getpass.getpass("Current Wallet Passphrase:")
++        inst.wallet.unlock(pwd)
++    else:
++        print("No wallet installed yet. Creating ...")
++        pwd = getpass.getpass("Wallet Encryption Passphrase:")
++        inst.wallet.create(pwd)
++
++
++
++def fill_order_history( bitshares, base, quote, limit=100,):
++        """ Returns a generator for individual account transactions. The
++            latest operation will be first. This call can be used in a
++            ``for`` loop.
++
++            :param asset base:  
++            :param asset quote:  
++            :param int limit: limit number of items to
++                return (*optional*)
++        """
++        
++        asset_a=Asset(base)
++        asset_b=Asset(quote)
++
++        return bitshares.rpc.get_fill_order_history(
++            asset_a["id"],
++            asset_b["id"],
++            limit,
++            api="history"
++        )
++
++
++
++
++def market_history( bitshares, base,quote,bucket_seconds,start,end):
++        """ Returns a generator for individual account transactions. The
++            latest operation will be first. This call can be used in a
++            ``for`` loop.
++
++            :param int first: sequence number of the first
++                transaction to return (*optional*)
++            :param int limit: limit number of transactions to
++                return (*optional*)
++            :param array only_ops: Limit generator by these
++                operations (*optional*)
++            :param array exclude_ops: Exclude thse operations from
++                generator (*optional*)
++        """
++        asset_a=Asset(base)
++        asset_b=Asset(quote)
++
++        return  bitshares.rpc.get_market_history(
++            asset_a["id"],
++            asset_b["id"],
++            bucket_seconds,
++            start,
++            end,
++            api="history"
++        )
++
++def get_balance_objects( bitshares,addr ):
++
++        
++        return  bitshares.rpc.get_balance_objects(
++            addr,
++            api="database"
++        )
++
++def get_account_by_name( bitshares,name ):
++
++        
++        return  bitshares.rpc.get_account_by_name(
++            name,
++            api="database"
++        )
++def get_object( bitshares,id ):
++
++        
++        return  bitshares.rpc.get_object(
++            id,
++            api="database"
++        )
++
++
++def cancel_vesting(inst,balance_object,account=None):
++   """ cancel_vesting
++
++
++       :param str account: the account to cancel
++           to (defaults to ``default_account``)
++       :param str balance object: the balance object to cancel
++   """
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++
++   kwargs = {
++       "fee": {"amount": 0, "asset_id": "1.3.0"},
++       "payer": account["id"],
++       "sender": account["id"],
++       "balance_object": balance_object,
++   }
++
++   op = operations.Cancel_vesting(**kwargs)
++
++
++   return inst.finalizeOp(op, account, "active")
++   
++
++#
++#  pts address:[ bin checksum[:4]]
++#      bin: ripemd160[ ver, sha256(pubkey)]
++#          ver:56 or 0.
++#          0 is used in cybex fork of witness node:libraries/chain/db_balance.cpp
++#      checksum: sha256 sha256 bin
++#  
++#  address(pts address):[bin checksum[:4]]    
++#      bin: ripemd160 pts address
++#      checksum: ripemd160 bin   
++#
++def pts_address(pubkey,prefix):
++         pubkeybin = PublicKey(pubkey,**{"prefix":prefix}).__bytes__()
++         #print(hexlify(pubkeybin),len(pubkeybin))
++         bin= "00"+hexlify(ripemd160(hexlify(hashlib.sha256(pubkeybin).digest()).decode('ascii'))).decode("ascii")
++         checksum=doublesha256(bin)
++
++         #print('bin',bin)
++         #print('csum1',checksum)
++         hex = bin+hexlify(checksum[:4]).decode('ascii')
++         #print('hex',hex)
++         hash=hexlify(ripemd160(hex)).decode('ascii')
++         #print('hash',hash)
++         checksum2=ripemd160(hash)
++         #print('csum2',checksum2)
++         b58= prefix+base58encode(hash + hexlify(checksum2[:4]).decode('ascii'))
++         #print('b58',b58)
++         return b58
++
++
+diff -Nur -x __pycache__ bitshares_old/cybexobjects.py bitshares/cybexobjects.py
+--- bitshares_old/cybexobjects.py       1970-01-01 08:00:00.000000000 +0800
++++ bitshares/cybexobjects.py   2018-04-20 11:33:16.782725243 +0800
+@@ -0,0 +1,76 @@
++from collections import OrderedDict
++from graphenebase.types import (
++    Uint8, Int16, Uint16, Uint32, Uint64,
++    Varint32, Int64, String, Bytes, Void,
++    Array, PointInTime, Signature, Bool,
++    Set, Fixed_array, Optional, Static_variant,
++    Map, Id, VoteId,
++    ObjectId as GPHObjectId
++)
++from graphenebase.objects import GrapheneObject
++from bitsharesbase.account import PublicKey
++
++class linear_vesting_policy_initializer(GrapheneObject):
++    def __init__(self,begin_timestamp,vesting_cliff_seconds,vesting_duration_seconds):
++
++        super().__init__(OrderedDict( [
++             ("begin_timestamp",PointInTime(begin_timestamp)),
++             ("vesting_cliff_seconds",Uint32(vesting_cliff_seconds)),
++             ("vesting_duration_seconds",Uint32(vesting_duration_seconds))
++               ]))      
++
++
++class linear_vesting_policy(Static_variant):
++     def __init__(self,begin_timestamp,vesting_cliff_seconds,vesting_duration_seconds):
++         o = linear_vesting_policy_initializer(begin_timestamp,vesting_cliff_seconds,vesting_duration_seconds)
++         super().__init__(o,0)
++
++
++class cdd_vesting_policy_initializer(GrapheneObject):
++    def __init__(self,start_claim,vesting_seconds):
++        super().__init__(OrderedDict([
++            ("start_claim",PointInTime(start_claim)),
++            ("vesting_seconds",Uint32(vesting_seconds))
++               ]))   
++
++class cdd_vesting_policy(Static_variant):
++     def __init__(self,start_claim,vesting_seconds):
++         o = cdd_vesting_policy_initializer(start_claim,vesting_seconds)
++         super().__init__(o,1)
++
++def VestingPolicy(o):
++   if isinstance(o,(cdd_vesting_policy,linear_vesting_policy)):
++       return o
++ 
++   if isinstance(o,list):
++      if o[0]==0:
++         return linear_vesting_policy(o[1]["begin_timestamp"],o[1]["vesting_cliff_seconds"],o[1]["vesting_duration_seconds"])
++      else:
++         if o[0]==1:
++            return cdd_vesting_policy(o[1]["start_claim"],o[1]["vesting_seconds"])
++   else:
++      raise ValueError("policy")
++ 
++class cybex_ext_vesting(Static_variant):
++    def __init__(self,pubkey,period):
++        o= GrapheneObject(OrderedDict ([
++            ("vesting_period",Uint64(period)),
++            ("public_key",PublicKey(pubkey,**{"prefix":"CYB"})) 
++        ]))
++        super().__init__(o,1)
++
++
++def CybexExtension(o):
++   if isinstance(o,cybex_ext_vesting):
++       return o
++ 
++   if isinstance(o,list):
++      a=[]
++      for e in o:
++         if e[0]==1:
++             a.append( cybex_ext_vesting(e[1]["public_key"],e[1]["vesting_period"]))
++         else:
++             raise ValueError("not implemented yet.")
++      return Set(a)
++   else:
++      raise ValueError("Cybex extension")
 EOF
 cat >$BITSHARESBASE_PATCH_FILE <<EOF
-diff -Nur -x __pycache__ -x 'cybex*' bitsharesbase_old/operationids.py bitsharesbase/operationids.py
+diff -Nur -x __pycache__ bitsharesbase_old/cybexchain.py bitsharesbase/cybexchain.py
+--- bitsharesbase_old/cybexchain.py     1970-01-01 08:00:00.000000000 +0800
++++ bitsharesbase/cybexchain.py 2018-04-20 11:55:03.197614871 +0800
+@@ -0,0 +1,15 @@
++from bitshares.storage import configStorage
++from bitsharesbase.chains import known_chains
++from graphenebase.base58 import known_prefixes
++
++cybex_chain={
++        "chain_id": "90be01e82b981c8f201c9a78a3d31f655743b29ff3274727b1439b093d04aa23",
++        "core_symbol": "CYB",
++        "prefix": "CYB"
++        }
++
++def cybex_config():
++   configStorage["prefix"]="CYB"
++   configStorage.config_defaults["node"]='ws://127.0.0.1:8090'
++   known_chains["CYB"]= cybex_chain
++   known_prefixes.append("CYB")
+diff -Nur -x __pycache__ bitsharesbase_old/operationids.py bitsharesbase/operationids.py
 --- bitsharesbase_old/operationids.py   2018-04-04 15:34:42.956270217 +0800
 +++ bitsharesbase/operationids.py       2018-04-20 11:35:10.448713470 +0800
 @@ -47,6 +47,7 @@
@@ -114,7 +379,7 @@ diff -Nur -x __pycache__ -x 'cybex*' bitsharesbase_old/operationids.py bitshares
  ]
  operations = {o: ops.index(o) for o in ops}
  
-diff -Nur -x __pycache__ -x 'cybex*' bitsharesbase_old/operations.py bitsharesbase/operations.py
+diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operations.py
 --- bitsharesbase_old/operations.py     2018-04-04 15:34:42.956270217 +0800
 +++ bitsharesbase/operations.py 2018-04-20 11:34:53.712420721 +0800
 @@ -1,5 +1,6 @@
@@ -167,7 +432,7 @@ EOF
 
 elif [ "$BTSVER" = "13" ]; then  # if [ "$BTSVER" = "12" ]; then...
 cat >$BITSHARES_PATCH_FILE <<EOF
-diff -Nur -x __pycache__ -x 'cybex*' bitshares_old/bitshares.py bitshares/bitshares.py
+diff -Nur -x __pycache__ bitshares_old/bitshares.py bitshares/bitshares.py
 --- bitshares_old/bitshares.py  2018-04-04 14:24:06.978826045 +0800
 +++ bitshares/bitshares.py      2018-04-20 10:47:28.602662623 +0800
 @@ -5,6 +5,7 @@
@@ -198,9 +463,274 @@ diff -Nur -x __pycache__ -x 'cybex*' bitshares_old/bitshares.py bitshares/bitsha
              "prefix": self.prefix
          })
          return self.finalizeOp(op, account, "active", **kwargs)
+diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
+--- bitshares_old/cybexlib.py   1970-01-01 08:00:00.000000000 +0800
++++ bitshares/cybexlib.py       2018-04-20 14:23:01.749249018 +0800
+@@ -0,0 +1,162 @@
++from bitshares import BitShares
++from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
++from bitsharesbase.account import PrivateKey, PublicKey
++from bitsharesbase import transactions, operations
++from bitshares.asset import Asset
++from bitshares.account import Account
++from binascii import hexlify, unhexlify
++from graphenebase.base58 import base58decode,base58encode,doublesha256,ripemd160, Base58
++import hashlib
++
++import logging
++import os
++import getpass
++
++log = logging.getLogger(__name__)
++
++def unlock(inst, *args, **kwargs):
++    if inst.wallet.created():
++        if "UNLOCK" in os.environ:
++            pwd = os.environ["UNLOCK"]
++        else:
++            pwd = getpass.getpass("Current Wallet Passphrase:")
++        inst.wallet.unlock(pwd)
++    else:
++        print("No wallet installed yet. Creating ...")
++        pwd = getpass.getpass("Wallet Encryption Passphrase:")
++        inst.wallet.create(pwd)
++
++
++
++def fill_order_history( bitshares, base, quote, limit=100,):
++        """ Returns a generator for individual account transactions. The
++            latest operation will be first. This call can be used in a
++            ``for`` loop.
++
++            :param asset base:  
++            :param asset quote:  
++            :param int limit: limit number of items to
++                return (*optional*)
++        """
++        
++        asset_a=Asset(base)
++        asset_b=Asset(quote)
++
++        return bitshares.rpc.get_fill_order_history(
++            asset_a["id"],
++            asset_b["id"],
++            limit,
++            api="history"
++        )
++
++
++
++
++def market_history( bitshares, base,quote,bucket_seconds,start,end):
++        """ Returns a generator for individual account transactions. The
++            latest operation will be first. This call can be used in a
++            ``for`` loop.
++
++            :param int first: sequence number of the first
++                transaction to return (*optional*)
++            :param int limit: limit number of transactions to
++                return (*optional*)
++            :param array only_ops: Limit generator by these
++                operations (*optional*)
++            :param array exclude_ops: Exclude thse operations from
++                generator (*optional*)
++        """
++        asset_a=Asset(base)
++        asset_b=Asset(quote)
++
++        return  bitshares.rpc.get_market_history(
++            asset_a["id"],
++            asset_b["id"],
++            bucket_seconds,
++            start,
++            end,
++            api="history"
++        )
++
++def get_balance_objects( bitshares,addr ):
++
++        
++        return  bitshares.rpc.get_balance_objects(
++            addr,
++            api="database"
++        )
++
++def get_account_by_name( bitshares,name ):
++
++        
++        return  bitshares.rpc.get_account_by_name(
++            name,
++            api="database"
++        )
++def get_object( bitshares,id ):
++
++        
++        return  bitshares.rpc.get_object(
++            id,
++            api="database"
++        )
++
++
++def cancel_vesting(inst,balance_object,account=None):
++   """ cancel_vesting
++
++
++       :param str account: the account to cancel
++           to (defaults to ``default_account``)
++       :param str balance object: the balance object to cancel
++   """
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++
++   kwargs = {
++       "fee": {"amount": 0, "asset_id": "1.3.0"},
++       "payer": account["id"],
++       "sender": account["id"],
++       "balance_object": balance_object,
++   }
++
++   op = operations.Cancel_vesting(**kwargs)
++
++
++   return inst.finalizeOp(op, account, "active")
++   
++
++#
++#  pts address:[ bin checksum[:4]]
++#      bin: ripemd160[ ver, sha256(pubkey)]
++#          ver:56 or 0.
++#          0 is used in cybex fork of witness node:libraries/chain/db_balance.cpp
++#      checksum: sha256 sha256 bin
++#  
++#  address(pts address):[bin checksum[:4]]    
++#      bin: ripemd160 pts address
++#      checksum: ripemd160 bin   
++#
++def pts_address(pubkey,prefix):
++         pubkeybin = PublicKey(pubkey,**{"prefix":prefix}).__bytes__()
++         #print(hexlify(pubkeybin),len(pubkeybin))
++         bin= "00"+hexlify(ripemd160(hexlify(hashlib.sha256(pubkeybin).digest()).decode('ascii'))).decode("ascii")
++         checksum=doublesha256(bin)
++
++         #print('bin',bin)
++         #print('csum1',checksum)
++         hex = bin+hexlify(checksum[:4]).decode('ascii')
++         #print('hex',hex)
++         hash=hexlify(ripemd160(hex)).decode('ascii')
++         #print('hash',hash)
++         checksum2=ripemd160(hash)
++         #print('csum2',checksum2)
++         b58= prefix+base58encode(hash + hexlify(checksum2[:4]).decode('ascii'))
++         #print('b58',b58)
++         return b58
++
++
+diff -Nur -x __pycache__ bitshares_old/cybexobjects.py bitshares/cybexobjects.py
+--- bitshares_old/cybexobjects.py       1970-01-01 08:00:00.000000000 +0800
++++ bitshares/cybexobjects.py   2018-04-20 10:47:28.602662623 +0800
+@@ -0,0 +1,76 @@
++from collections import OrderedDict
++from graphenebase.types import (
++    Uint8, Int16, Uint16, Uint32, Uint64,
++    Varint32, Int64, String, Bytes, Void,
++    Array, PointInTime, Signature, Bool,
++    Set, Fixed_array, Optional, Static_variant,
++    Map, Id, VoteId,
++    ObjectId as GPHObjectId
++)
++from graphenebase.objects import GrapheneObject
++from bitsharesbase.account import PublicKey
++
++class linear_vesting_policy_initializer(GrapheneObject):
++    def __init__(self,begin_timestamp,vesting_cliff_seconds,vesting_duration_seconds):
++
++        super().__init__(OrderedDict( [
++             ("begin_timestamp",PointInTime(begin_timestamp)),
++             ("vesting_cliff_seconds",Uint32(vesting_cliff_seconds)),
++             ("vesting_duration_seconds",Uint32(vesting_duration_seconds))
++               ]))      
++
++
++class linear_vesting_policy(Static_variant):
++     def __init__(self,begin_timestamp,vesting_cliff_seconds,vesting_duration_seconds):
++         o = linear_vesting_policy_initializer(begin_timestamp,vesting_cliff_seconds,vesting_duration_seconds)
++         super().__init__(o,0)
++
++
++class cdd_vesting_policy_initializer(GrapheneObject):
++    def __init__(self,start_claim,vesting_seconds):
++        super().__init__(OrderedDict([
++            ("start_claim",PointInTime(start_claim)),
++            ("vesting_seconds",Uint32(vesting_seconds))
++               ]))   
++
++class cdd_vesting_policy(Static_variant):
++     def __init__(self,start_claim,vesting_seconds):
++         o = cdd_vesting_policy_initializer(start_claim,vesting_seconds)
++         super().__init__(o,1)
++
++def VestingPolicy(o):
++   if isinstance(o,(cdd_vesting_policy,linear_vesting_policy)):
++       return o
++ 
++   if isinstance(o,list):
++      if o[0]==0:
++         return linear_vesting_policy(o[1]["begin_timestamp"],o[1]["vesting_cliff_seconds"],o[1]["vesting_duration_seconds"])
++      else:
++         if o[0]==1:
++            return cdd_vesting_policy(o[1]["start_claim"],o[1]["vesting_seconds"])
++   else:
++      raise ValueError("policy")
++ 
++class cybex_ext_vesting(Static_variant):
++    def __init__(self,pubkey,period):
++        o= GrapheneObject(OrderedDict ([
++            ("vesting_period",Uint64(period)),
++            ("public_key",PublicKey(pubkey,**{"prefix":"CYB"})) 
++        ]))
++        super().__init__(o,1)
++
++
++def CybexExtension(o):
++   if isinstance(o,cybex_ext_vesting):
++       return o
++ 
++   if isinstance(o,list):
++      a=[]
++      for e in o:
++         if e[0]==1:
++             a.append( cybex_ext_vesting(e[1]["public_key"],e[1]["vesting_period"]))
++         else:
++             raise ValueError("not implemented yet.")
++      return Set(a)
++   else:
++      raise ValueError("Cybex extension")
 EOF
 cat >$BITSHARESBASE_PATCH_FILE <<EOF
-diff -Nur -x __pycache__ -x 'cybex*' bitsharesbase_old/operationids.py bitsharesbase/operationids.py
+diff -Nur -x __pycache__ bitsharesbase_old/cybexchain.py bitsharesbase/cybexchain.py
+--- bitsharesbase_old/cybexchain.py     1970-01-01 08:00:00.000000000 +0800
++++ bitsharesbase/cybexchain.py 2018-04-20 11:51:24.045773156 +0800
+@@ -0,0 +1,15 @@
++from bitshares.storage import configStorage
++from bitsharesbase.chains import known_chains
++from graphenebase.base58 import known_prefixes
++
++cybex_chain={
++        "chain_id": "90be01e82b981c8f201c9a78a3d31f655743b29ff3274727b1439b093d04aa23",
++        "core_symbol": "CYB",
++        "prefix": "CYB"
++        }
++
++def cybex_config():
++   configStorage["prefix"]="CYB"
++   configStorage.config_defaults["node"]='ws://127.0.0.1:8090'
++   known_chains["CYB"]= cybex_chain
++   known_prefixes.append("CYB")
+diff -Nur -x __pycache__ bitsharesbase_old/operationids.py bitsharesbase/operationids.py
 --- bitsharesbase_old/operationids.py   2018-04-04 14:24:06.982826232 +0800
 +++ bitsharesbase/operationids.py       2018-04-20 10:51:06.182475472 +0800
 @@ -47,6 +47,7 @@
@@ -211,7 +741,7 @@ diff -Nur -x __pycache__ -x 'cybex*' bitsharesbase_old/operationids.py bitshares
  ]
  operations = {o: ops.index(o) for o in ops}
  
-diff -Nur -x __pycache__ -x 'cybex*' bitsharesbase_old/operations.py bitsharesbase/operations.py
+diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operations.py
 --- bitsharesbase_old/operations.py     2018-04-04 14:24:06.982826232 +0800
 +++ bitsharesbase/operations.py 2018-04-20 10:50:43.374075796 +0800
 @@ -1,5 +1,6 @@
