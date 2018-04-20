@@ -1,0 +1,13 @@
+{
+  "chain_id": "aa68f2baa32fc8b361a8ff7c87d9bbe2d9d86a36f4375f3d8c167ec24e1744fe",
+  "my_accounts": [],
+  "cipher_keys": "c272236510ce2a0c03e1726d15912061e053056b46064d632caae695d987a71c969546c97c5b6c9cd6e40c82443d806b4f9f885732e583619c0a62b7a5b5b3830a3b8395273305f89fe540fcdb70e169",
+  "extra_keys": [],
+  "pending_account_registrations": [],
+  "pending_witness_registrations": [],
+  "labeled_keys": [],
+  "blind_receipts": [],
+  "ws_server": "ws://127.0.0.1:8090",
+  "ws_user": "",
+  "ws_password": ""
+}
