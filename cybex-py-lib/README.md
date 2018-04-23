@@ -22,7 +22,7 @@ BITSHARES VERSION
 ======
 Bitshares version 0.1.12 and 0.1.13 are both supported, however, 0.1.13 is more recommended.
 
-INSTALLATION
+AUTO INSTALLATION
 ======
 Currently, we build cybex python lib basing on bitshares python lib. You need first to install bitshares python library.
 Use following command to install bitshares python lib.
@@ -47,3 +47,8 @@ chmod u+x patch.sh
 
 At the end of execution, you will get two commands, which can be used to rollback the patch when you need to recover
 your bitshares python lib installation.
+
+MANUALLY INSTALLATION
+======
+If you are not running auto patch script, you can also manually patch your bitshares library.
+Files in document cybex_files can be copied to your bitshares installation path. Some files will be replaced and some to be added.
