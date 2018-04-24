@@ -467,13 +467,13 @@ diff -Nur -x __pycache__ bitshares_old/bitshares.py bitshares/bitshares.py
          return self.finalizeOp(op, account, "active", **kwargs)
 diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 --- bitshares_old/cybexlib.py   1970-01-01 08:00:00.000000000 +0800
-+++ bitshares/cybexlib.py       2018-04-20 14:23:01.749249018 +0800
-@@ -0,0 +1,162 @@
++++ bitshares/cybexlib.py       2018-04-24 17:56:19.605555973 +0800
+@@ -0,0 +1,195 @@
 +from bitshares import BitShares
 +from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
 +from bitsharesbase.account import PrivateKey, PublicKey
 +from bitsharesbase import transactions, operations
-+from bitshares.asset import Asset
++from bitsharesbase.objects import Asset
 +from bitshares.account import Account
 +from binascii import hexlify, unhexlify
 +from graphenebase.base58 import base58decode,base58encode,doublesha256,ripemd160, Base58
@@ -600,6 +600,39 @@ diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 +
 +   return inst.finalizeOp(op, account, "active")
 +   
++
++def issue_asset(inst,account,issue_to_account,asset_to_issue, amount,memo,**_kwargs):
++   """ issue asset
++
++       :param str account: (optional) the account of issuer
++           to (defaults to ``default_account``)
++       :param str account: (optional) the account of asset receiver
++       :param object id:  id of the asset to issue
++       :param float amount: amount of the asset to issue
++       :param str memo: memo
++   """
++   if not account:
++       if "default_account" in config:
++           account = config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   acc = Account(account)
++   issue_to_acc = Account(issue_to_account)
++   asset=Asset(asset_id=asset_to_issue, amount=amount)
++
++   kwargs = {
++       "fee": {"amount": 0, "asset_id": "1.3.0"},
++       "issuer": acc["id"],
++       "issue_to_account": issue_to_acc["id"],
++       "asset_to_issue": asset,
++       "memo": memo,
++   }
++   if "extensions" in _kwargs:
++         kwargs["extensions"]=_kwargs["extensions"]
++
++   op = operations.Asset_issue(**kwargs)
++
++   return inst.finalizeOp(op, account, "active")
 +
 +#
 +#  pts address:[ bin checksum[:4]]
@@ -736,18 +769,71 @@ diff -Nur -x __pycache__ bitsharesbase_old/cybexchain.py bitsharesbase/cybexchai
 +   known_prefixes.append("CYB")
 diff -Nur -x __pycache__ bitsharesbase_old/operationids.py bitsharesbase/operationids.py
 --- bitsharesbase_old/operationids.py   2018-04-04 14:24:06.982826232 +0800
-+++ bitsharesbase/operationids.py       2018-04-20 10:51:06.182475472 +0800
-@@ -47,6 +47,7 @@
++++ bitsharesbase/operationids.py       2018-04-24 17:58:52.948237621 +0800
+@@ -47,6 +47,60 @@
      "fba_distribute",
      "bid_collateral",
      "execute_bid",
++    "reserved47",
++    "reserved48",
++    "reserved49",
++    "reserved50",
++    "reserved51",
++    "reserved52",
++    "reserved53",
++    "reserved54",
++    "reserved55",
++    "reserved56",
++    "reserved57",
++    "reserved58",
++    "reserved59",
++    "reserved60",
++    "reserved61",
++    "reserved62",
++    "reserved63",
++    "reserved64",
++    "reserved65",
++    "reserved66",
++    "reserved67",
++    "reserved68",
++    "reserved69",
++    "reserved70",
++    "reserved71",
++    "reserved72",
++    "reserved73",
++    "reserved74",
++    "reserved75",
++    "reserved76",
++    "reserved77",
++    "reserved78",
++    "reserved79",
++    "reserved80",
++    "reserved81",
++    "reserved82",
++    "reserved83",
++    "reserved84",
++    "reserved85",
++    "reserved86",
++    "reserved87",
++    "reserved88",
++    "reserved89",
++    "reserved90",
++    "reserved91",
++    "reserved92",
++    "reserved93",
++    "reserved94",
++    "reserved95",
++    "reserved96",
++    "reserved97",
++    "reserved98",
++    "reserved99",
 +    "cancel_vesting"
  ]
  operations = {o: ops.index(o) for o in ops}
  
 diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operations.py
 --- bitsharesbase_old/operations.py     2018-04-04 14:24:06.982826232 +0800
-+++ bitsharesbase/operations.py 2018-04-20 10:50:43.374075796 +0800
++++ bitsharesbase/operations.py 2018-04-24 18:10:30.348432860 +0800
 @@ -1,5 +1,6 @@
  from collections import OrderedDict
  import json
@@ -776,7 +862,32 @@ diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operation
              ]))
  
  
-@@ -562,3 +569,17 @@
+@@ -151,16 +158,22 @@
+             if len(args) == 1 and len(kwargs) == 0:
+                 kwargs = args[0]
+             if "memo" in kwargs and kwargs["memo"]:
+-                memo = Optional(Memo(prefix=prefix, **kwargs["memo"]))
++                memo = Optional(Memo(kwargs["memo"],prefix=prefix))
+             else:
+                 memo = Optional(None)
++
++            if 'extensions' in kwargs and  isinstance(kwargs['extensions'],list) and len(kwargs['extensions'])>0:
++                extensions=CybexExtension(kwargs['extensions'])
++            else:
++               extensions=Set([])
++
+             super().__init__(OrderedDict([
+                 ('fee', Asset(kwargs["fee"])),
+                 ('issuer', ObjectId(kwargs["issuer"], "account")),
+                 ('asset_to_issue', Asset(kwargs["asset_to_issue"])),
+                 ('issue_to_account', ObjectId(kwargs["issue_to_account"], "account")),
+                 ('memo', memo),
+-                ('extensions', Set([])),
++                ('extensions', extensions),
+             ]))
+ 
+ 
+@@ -562,3 +575,17 @@
                  ('committee_member_account', ObjectId(kwargs["committee_member_account"], "account")),
                  ('url', String(kwargs["url"])),
              ]))
