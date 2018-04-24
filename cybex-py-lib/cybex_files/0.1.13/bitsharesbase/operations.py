@@ -158,16 +158,22 @@ class Asset_issue(GrapheneObject):
             if len(args) == 1 and len(kwargs) == 0:
                 kwargs = args[0]
             if "memo" in kwargs and kwargs["memo"]:
-                memo = Optional(Memo(prefix=prefix, **kwargs["memo"]))
+                memo = Optional(Memo(kwargs["memo"],prefix=prefix))
             else:
                 memo = Optional(None)
+
+            if 'extensions' in kwargs and  isinstance(kwargs['extensions'],list) and len(kwargs['extensions'])>0:
+                extensions=CybexExtension(kwargs['extensions'])
+            else:
+               extensions=Set([])
+
             super().__init__(OrderedDict([
                 ('fee', Asset(kwargs["fee"])),
                 ('issuer', ObjectId(kwargs["issuer"], "account")),
                 ('asset_to_issue', Asset(kwargs["asset_to_issue"])),
                 ('issue_to_account', ObjectId(kwargs["issue_to_account"], "account")),
                 ('memo', memo),
-                ('extensions', Set([])),
+                ('extensions', extensions),
             ]))
 
 

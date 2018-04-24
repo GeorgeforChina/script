@@ -2,7 +2,7 @@ from bitshares import BitShares
 from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
 from bitsharesbase.account import PrivateKey, PublicKey
 from bitsharesbase import transactions, operations
-from bitshares.asset import Asset
+from bitsharesbase.objects import Asset
 from bitshares.account import Account
 from binascii import hexlify, unhexlify
 from graphenebase.base58 import base58decode,base58encode,doublesha256,ripemd160, Base58
@@ -129,6 +129,39 @@ def cancel_vesting(inst,balance_object,account=None):
 
    return inst.finalizeOp(op, account, "active")
    
+
+def issue_asset(inst,account,issue_to_account,asset_to_issue, amount,memo,**_kwargs):
+   """ issue asset
+
+       :param str account: (optional) the account of issuer
+           to (defaults to ``default_account``)
+       :param str account: (optional) the account of asset receiver
+       :param object id:  id of the asset to issue
+       :param float amount: amount of the asset to issue
+       :param str memo: memo
+   """
+   if not account:
+       if "default_account" in config:
+           account = config["default_account"]
+   if not account:
+       raise ValueError("You need to provide an account")
+   acc = Account(account)
+   issue_to_acc = Account(issue_to_account)
+   asset=Asset(asset_id=asset_to_issue, amount=amount)
+
+   kwargs = {
+       "fee": {"amount": 0, "asset_id": "1.3.0"},
+       "issuer": acc["id"],
+       "issue_to_account": issue_to_acc["id"],
+       "asset_to_issue": asset,
+       "memo": memo,
+   }
+   if "extensions" in _kwargs:
+         kwargs["extensions"]=_kwargs["extensions"]
+
+   op = operations.Asset_issue(**kwargs)
+
+   return inst.finalizeOp(op, account, "active")
 
 #
 #  pts address:[ bin checksum[:4]]
