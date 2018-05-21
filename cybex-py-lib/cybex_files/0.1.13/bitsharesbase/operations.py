@@ -589,3 +589,46 @@ class Cancel_vesting(GrapheneObject):
                 ('sender', ObjectId(kwargs["sender"],"account")),
                 ('balance_object', ObjectId(kwargs["balance_object"])),
             ]))
+
+class Initiate_crowdfund(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            super().__init__(OrderedDict([
+                ('fee', Asset(kwargs["fee"])),
+                ('owner', ObjectId(kwargs["owner"],"account")),
+                ('asset_id', ObjectId(kwargs["asset_id"],"asset")),
+                ('t', Uint64(kwargs["t"])),
+                ('u', Uint64(kwargs["u"])),
+            ]))
+
+class Participate_crowdfund(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            super().__init__(OrderedDict([
+                ('fee', Asset(kwargs["fee"])),
+                ('buyer', ObjectId(kwargs["buyer"],"account")),
+                ('valuation', Uint64(kwargs["valuation"])),
+                ('cap', Uint64(kwargs["cap"])),
+                ('crowdfund', ObjectId(kwargs["crowdfund"])),
+            ]))
+
+class Withdraw_crowdfund(GrapheneObject):
+    def __init__(self, *args, **kwargs):
+        if isArgsThisClass(self, args):
+                self.data = args[0].data
+        else:
+            if len(args) == 1 and len(kwargs) == 0:
+                kwargs = args[0]
+            super().__init__(OrderedDict([
+                ('fee', Asset(kwargs["fee"])),
+                ('buyer', ObjectId(kwargs["buyer"],"account")),
+                ('crowdfund_contract', ObjectId(kwargs["crowdfund_contract"])),
+            ]))

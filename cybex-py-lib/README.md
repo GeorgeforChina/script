@@ -20,7 +20,7 @@ https://virtualenv.pypa.io/en/stable/
 
 BITSHARES VERSION
 ======
-Bitshares version 0.1.12 and 0.1.13 are both supported, however, 0.1.13 is more recommended.
+Bitshares version 0.1.12 and 0.1.13 are both supported, however, 0.1.13 is STRONGLY recommended and FULLY tested.
 
 AUTO INSTALLATION
 ======

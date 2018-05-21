@@ -467,18 +467,18 @@ diff -Nur -x __pycache__ bitshares_old/bitshares.py bitshares/bitshares.py
          return self.finalizeOp(op, account, "active", **kwargs)
 diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 --- bitshares_old/cybexlib.py   1970-01-01 08:00:00.000000000 +0800
-+++ bitshares/cybexlib.py       2018-04-24 17:56:19.605555973 +0800
-@@ -0,0 +1,195 @@
++++ bitshares/cybexlib.py       2018-05-21 14:07:00.151032479 +0800
+@@ -0,0 +1,428 @@
 +from bitshares import BitShares
 +from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
 +from bitsharesbase.account import PrivateKey, PublicKey
 +from bitsharesbase import transactions, operations
-+from bitsharesbase.objects import Asset
++from bitshares.asset import Asset
 +from bitshares.account import Account
 +from binascii import hexlify, unhexlify
 +from graphenebase.base58 import base58decode,base58encode,doublesha256,ripemd160, Base58
++from graphenebase.account import  PublicKey as GPHPublicKey
 +import hashlib
-+
 +import logging
 +import os
 +import getpass
@@ -572,11 +572,40 @@ diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 +            api="database"
 +        )
 +
++def lookup_asset_symbols( bitshares,symbols ):
++
++
++        return  bitshares.rpc.lookup_asset_symbols(
++            symbols,
++            api="database"
++        )
++
++def get_crowdfund_objects( bitshares,id ):
++
++        
++        return  bitshares.rpc.get_crowdfund_objects(
++            id,
++            api="database"
++        )
++
++def get_crowdfund_contract_objects( bitshares,id ):
++
++        
++        return  bitshares.rpc.get_crowdfund_contract_objects(
++            id,
++            api="database"
++        )
++
++def list_crowdfund_objects( bitshares,id,limit ):
++
++        
++        return  bitshares.rpc.list_crowdfund_objects(
++            id,limit,
++            api="database"
++        )
 +
 +def cancel_vesting(inst,balance_object,account=None):
 +   """ cancel_vesting
-+
-+
 +       :param str account: the account to cancel
 +           to (defaults to ``default_account``)
 +       :param str balance object: the balance object to cancel
@@ -597,40 +626,238 @@ diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 +
 +   op = operations.Cancel_vesting(**kwargs)
 +
-+
 +   return inst.finalizeOp(op, account, "active")
-+   
 +
-+def issue_asset(inst,account,issue_to_account,asset_to_issue, amount,memo,**_kwargs):
-+   """ issue asset
 +
-+       :param str account: (optional) the account of issuer
++def withdraw_crowdfund(inst,crowdfund_contract,account=None):
++   """ withdraw_crowdfund
++       :param str account: the account to cancel
 +           to (defaults to ``default_account``)
-+       :param str account: (optional) the account of asset receiver
-+       :param object id:  id of the asset to issue
-+       :param float amount: amount of the asset to issue
-+       :param str memo: memo
++       :param str balance object: the balance object to cancel
 +   """
 +   if not account:
-+       if "default_account" in config:
-+           account = config["default_account"]
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
 +   if not account:
 +       raise ValueError("You need to provide an account")
-+   acc = Account(account)
-+   issue_to_acc = Account(issue_to_account)
-+   asset=Asset(asset_id=asset_to_issue, amount=amount)
++   account = Account(account)
 +
 +   kwargs = {
 +       "fee": {"amount": 0, "asset_id": "1.3.0"},
-+       "issuer": acc["id"],
-+       "issue_to_account": issue_to_acc["id"],
-+       "asset_to_issue": asset,
-+       "memo": memo,
++       "buyer": account["id"],
++       "crowdfund_contract": crowdfund_contract
 +   }
-+   if "extensions" in _kwargs:
-+         kwargs["extensions"]=_kwargs["extensions"]
++
++   op = operations.Withdraw_crowdfund(**kwargs)
++
++   return inst.finalizeOp(op, account, "active")
++
++def participate_crowdfund(inst,crowdfund,valuation,cap,account=None):
++   """ participate_crowdfund
++       :param str account: the account to cancel
++           to (defaults to ``default_account``)
++       :param str balance object: the balance object to cancel
++   """
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++
++   kwargs = {
++       "fee": {"amount": 0, "asset_id": "1.3.0"},
++       "buyer": account["id"],
++       "valuation":valuation,
++       "cap":cap,
++       "crowdfund": crowdfund
++   }
++
++   op = operations.Participate_crowdfund(**kwargs)
++
++   return inst.finalizeOp(op, account, "active")
++
++
++def initiate_crowdfund(inst,asset_id,t,u,account=None):
++   """ initiate_crowdfund
++       :param str account: the account to cancel
++           to (defaults to ``default_account``)
++       :param str balance object: the balance object to cancel
++   """
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++
++   kwargs = {
++       "fee": {"amount": 0, "asset_id": "1.3.0"},
++       "owner": account["id"],
++       "asset_id":asset_id,
++       "t": t,
++       "u": u
++   }
++
++   op = operations.Initiate_crowdfund(**kwargs)
++
++   return inst.finalizeOp(op, account, "active")
++
++def issue_asset(inst,issue_to_account,to_issue_asset,amount,memo=None,account=None,**kwargs):
++   """ issue_asset
++
++
++       :param str account: the account to cancel
++           to (defaults to ``default_account``)
++   """
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++
++   if 'extensions' in kwargs :
++        extensions=kwargs['extensions']
++   else:
++        extensions=Set([])
++   print(extensions)
++   asset_to_issue={"amount": amount, "asset_id":to_issue_asset }
++   kwargs = {
++                'fee':{"amount": 0, "asset_id": "1.3.0"},
++                'issuer':account["id"],
++                'asset_to_issue':asset_to_issue,
++                'issue_to_account': issue_to_account,
++                'memo':memo,
++                'extensions':extensions
++   }
 +
 +   op = operations.Asset_issue(**kwargs)
++
++
++   return inst.finalizeOp(op, account, "active")
++
++def call_order_update(inst,delta_collateral,delta_debt,account=None):
++   """ call_order_update 
++
++       :param str account: the account to cancel
++           to (defaults to ``default_account``)
++   """
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++
++   kwargs = {
++                'fee':{"amount": 0, "asset_id": "1.3.0"},
++                'funding_account':account["id"],
++                'delta_collateral':delta_collateral,
++                'delta_debt':delta_debt,
++   }
++
++   op = operations.Call_order_update(**kwargs)
++
++   return inst.finalizeOp(op, account, "active")
++
++
++def  create_asset(inst,symbol,precision,is_prediction_market=False,account=None,**kwargs):
++   """ create_asset
++   """
++   key={}
++   perm = {}
++   perm["charge_market_fee"] = 0x01
++   perm["white_list"] = 0x02
++   perm["override_authority"] = 0x04
++   perm["transfer_restricted"] = 0x08
++   perm["disable_force_settle"] = 0x10
++   perm["global_settle"] = 0x20
++   perm["disable_confidential"] = 0x40
++   perm["witness_fed_asset"] = 0x80
++   perm["committee_fed_asset"] = 0x100
++
++   permissions = {"charge_market_fee" : False,
++                  "white_list" : True,
++                  "override_authority" : True,
++                  "transfer_restricted" : True,
++                  "disable_force_settle" : False,
++                  "global_settle" : True,
++                  "disable_confidential" : True,
++                  "witness_fed_asset" : False,
++                  "committee_fed_asset" : False,
++                  }
++   flags       = {"charge_market_fee" : False,
++                  "white_list" : False,
++                  "override_authority" : False,
++                  "transfer_restricted" : False,
++                  "disable_force_settle" : False,
++                  "global_settle" : False,
++                  "disable_confidential" : False,
++                  "witness_fed_asset" : False,
++                  "committee_fed_asset" : False,
++                  }
++   permissions_int = 0
++   for p in permissions :
++       if permissions[p]:
++           permissions_int += perm[p]
++   flags_int = 0
++   for p in permissions :
++       if flags[p]:
++           flags_int += perm[p]
++
++   extension= []
++   options = {"max_supply" : 1000000000000000,
++              "market_fee_percent" : 0,
++              "max_market_fee" : 0,
++              "issuer_permissions" : permissions_int,
++              "flags" : flags_int,
++              "precision" : precision,
++              "core_exchange_rate" : {
++                  "base": {
++                      "amount": 10,
++                      "asset_id": "1.3.0"},
++                  "quote": {
++                      "amount": 10,
++                      "asset_id": "1.3.1"}},
++              "whitelist_authorities" : [],
++              "blacklist_authorities" : [],
++              "whitelist_markets" : [],
++              "blacklist_markets" : [],
++              "description" : "My fancy description",
++              "extensions" : extension
++              }
++
++   if not account:
++       if "default_account" in inst.config:
++           account = inst.config["default_account"]
++   if not account:
++       raise ValueError("You need to provide an account")
++   account = Account(account)
++ 
++   if 'common_options' in kwargs:
++         common_options=kwargs['common_options']
++   else:
++         common_options=options
++ 
++   if 'bitasset_options' in kwargs:
++         bitasset_options=kwargs['bitasset_options']
++   else:
++         bitasset_options=None
++
++   kwargs = {
++                'fee': {"amount": 0, "asset_id": "1.3.0"},
++                'issuer': account["id"],
++                'symbol': symbol,
++                'precision': precision,
++                'common_options': common_options,
++                'is_prediction_market': is_prediction_market
++   }
++   if bitasset_options:
++        kwargs['bitasset_opts'] = bitasset_options 
++
++   op = operations.Asset_create(**kwargs)
++
 +
 +   return inst.finalizeOp(op, account, "active")
 +
@@ -645,10 +872,14 @@ diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 +#      bin: ripemd160 pts address
 +#      checksum: ripemd160 bin   
 +#
-+def pts_address(pubkey,prefix):
-+         pubkeybin = PublicKey(pubkey,**{"prefix":prefix}).__bytes__()
++def pts_address(pubkey,compressed,ver,prefix):
++         if compressed:
++            pubkeybin = PublicKey(pubkey,**{"prefix":prefix}).__bytes__()
++         else:
++            pubkeybin = unhexlify(PublicKey(pubkey,**{"prefix":prefix}).unCompressed())
++
 +         #print(hexlify(pubkeybin),len(pubkeybin))
-+         bin= "00"+hexlify(ripemd160(hexlify(hashlib.sha256(pubkeybin).digest()).decode('ascii'))).decode("ascii")
++         bin='%02x'%(ver) +hexlify(ripemd160(hexlify(hashlib.sha256(pubkeybin).digest()).decode('ascii'))).decode("ascii")
 +         checksum=doublesha256(bin)
 +
 +         #print('bin',bin)
@@ -662,6 +893,8 @@ diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 +         b58= prefix+base58encode(hash + hexlify(checksum2[:4]).decode('ascii'))
 +         #print('b58',b58)
 +         return b58
++
++
 +
 +
 diff -Nur -x __pycache__ bitshares_old/cybexobjects.py bitshares/cybexobjects.py
@@ -769,71 +1002,24 @@ diff -Nur -x __pycache__ bitsharesbase_old/cybexchain.py bitsharesbase/cybexchai
 +   known_prefixes.append("CYB")
 diff -Nur -x __pycache__ bitsharesbase_old/operationids.py bitsharesbase/operationids.py
 --- bitsharesbase_old/operationids.py   2018-04-04 14:24:06.982826232 +0800
-+++ bitsharesbase/operationids.py       2018-04-24 17:58:52.948237621 +0800
-@@ -47,6 +47,60 @@
++++ bitsharesbase/operationids.py       2018-05-15 11:24:53.229487991 +0800
+@@ -45,8 +45,12 @@
+     "asset_settle_cancel",
+     "asset_claim_fees",
      "fba_distribute",
++    "initiate_crowdfund",
++    "participate_crowdfund",
++    "withdraw_crowdfund",
++    "cancel_vesting",
      "bid_collateral",
-     "execute_bid",
-+    "reserved47",
-+    "reserved48",
-+    "reserved49",
-+    "reserved50",
-+    "reserved51",
-+    "reserved52",
-+    "reserved53",
-+    "reserved54",
-+    "reserved55",
-+    "reserved56",
-+    "reserved57",
-+    "reserved58",
-+    "reserved59",
-+    "reserved60",
-+    "reserved61",
-+    "reserved62",
-+    "reserved63",
-+    "reserved64",
-+    "reserved65",
-+    "reserved66",
-+    "reserved67",
-+    "reserved68",
-+    "reserved69",
-+    "reserved70",
-+    "reserved71",
-+    "reserved72",
-+    "reserved73",
-+    "reserved74",
-+    "reserved75",
-+    "reserved76",
-+    "reserved77",
-+    "reserved78",
-+    "reserved79",
-+    "reserved80",
-+    "reserved81",
-+    "reserved82",
-+    "reserved83",
-+    "reserved84",
-+    "reserved85",
-+    "reserved86",
-+    "reserved87",
-+    "reserved88",
-+    "reserved89",
-+    "reserved90",
-+    "reserved91",
-+    "reserved92",
-+    "reserved93",
-+    "reserved94",
-+    "reserved95",
-+    "reserved96",
-+    "reserved97",
-+    "reserved98",
-+    "reserved99",
-+    "cancel_vesting"
+-    "execute_bid",
++    "execute_bid"
  ]
  operations = {o: ops.index(o) for o in ops}
  
 diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operations.py
 --- bitsharesbase_old/operations.py     2018-04-04 14:24:06.982826232 +0800
-+++ bitsharesbase/operations.py 2018-04-24 18:10:30.348432860 +0800
++++ bitsharesbase/operations.py 2018-05-21 09:57:45.556024041 +0800
 @@ -1,5 +1,6 @@
  from collections import OrderedDict
  import json
@@ -887,7 +1073,7 @@ diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operation
              ]))
  
  
-@@ -562,3 +575,17 @@
+@@ -562,3 +575,60 @@
                  ('committee_member_account', ObjectId(kwargs["committee_member_account"], "account")),
                  ('url', String(kwargs["url"])),
              ]))
@@ -904,6 +1090,49 @@ diff -Nur -x __pycache__ bitsharesbase_old/operations.py bitsharesbase/operation
 +                ('fee', Asset(kwargs["fee"])),
 +                ('sender', ObjectId(kwargs["sender"],"account")),
 +                ('balance_object', ObjectId(kwargs["balance_object"])),
++            ]))
++
++class Initiate_crowdfund(GrapheneObject):
++    def __init__(self, *args, **kwargs):
++        if isArgsThisClass(self, args):
++                self.data = args[0].data
++        else:
++            if len(args) == 1 and len(kwargs) == 0:
++                kwargs = args[0]
++            super().__init__(OrderedDict([
++                ('fee', Asset(kwargs["fee"])),
++                ('owner', ObjectId(kwargs["owner"],"account")),
++                ('asset_id', ObjectId(kwargs["asset_id"],"asset")),
++                ('t', Uint64(kwargs["t"])),
++                ('u', Uint64(kwargs["u"])),
++            ]))
++
++class Participate_crowdfund(GrapheneObject):
++    def __init__(self, *args, **kwargs):
++        if isArgsThisClass(self, args):
++                self.data = args[0].data
++        else:
++            if len(args) == 1 and len(kwargs) == 0:
++                kwargs = args[0]
++            super().__init__(OrderedDict([
++                ('fee', Asset(kwargs["fee"])),
++                ('buyer', ObjectId(kwargs["buyer"],"account")),
++                ('valuation', Uint64(kwargs["valuation"])),
++                ('cap', Uint64(kwargs["cap"])),
++                ('crowdfund', ObjectId(kwargs["crowdfund"])),
++            ]))
++
++class Withdraw_crowdfund(GrapheneObject):
++    def __init__(self, *args, **kwargs):
++        if isArgsThisClass(self, args):
++                self.data = args[0].data
++        else:
++            if len(args) == 1 and len(kwargs) == 0:
++                kwargs = args[0]
++            super().__init__(OrderedDict([
++                ('fee', Asset(kwargs["fee"])),
++                ('buyer', ObjectId(kwargs["buyer"],"account")),
++                ('crowdfund_contract', ObjectId(kwargs["crowdfund_contract"])),
 +            ]))
 EOF
 fi # end if [ "$BTSVER" = "12"]
