@@ -467,8 +467,8 @@ diff -Nur -x __pycache__ bitshares_old/bitshares.py bitshares/bitshares.py
          return self.finalizeOp(op, account, "active", **kwargs)
 diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 --- bitshares_old/cybexlib.py   1970-01-01 08:00:00.000000000 +0800
-+++ bitshares/cybexlib.py       2018-05-21 14:07:00.151032479 +0800
-@@ -0,0 +1,428 @@
++++ bitshares/cybexlib.py       2018-06-19 16:02:01.214275958 +0800
+@@ -0,0 +1,446 @@
 +from bitshares import BitShares
 +from bitsharesapi.bitsharesnoderpc import BitSharesNodeRPC
 +from bitsharesbase.account import PrivateKey, PublicKey
@@ -601,6 +601,24 @@ diff -Nur -x __pycache__ bitshares_old/cybexlib.py bitshares/cybexlib.py
 +        
 +        return  bitshares.rpc.list_crowdfund_objects(
 +            id,limit,
++            api="database"
++        )
++
++def get_ticker( bitshares,base,quote ):
++
++
++        return  bitshares.rpc.get_ticker(
++            base,
++            quote,
++            api="database"
++        )
++
++def get_24_volume( bitshares,base,quote ):
++
++
++        return  bitshares.rpc.get_24_volume(
++            base,
++            quote,
 +            api="database"
 +        )
 +
