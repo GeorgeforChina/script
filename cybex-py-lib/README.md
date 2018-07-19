@@ -21,13 +21,14 @@ https://virtualenv.pypa.io/en/stable/
 BITSHARES VERSION
 ======
 Bitshares version 0.1.12 and 0.1.13 are both supported, however, 0.1.13 is STRONGLY recommended and FULLY tested.
+For graphenelib, 0.6.1 is required. We have found several conflicts between bitshares version 0.1.13 and graphenelib version after 0.6.2
 
 AUTO INSTALLATION
 ======
 Currently, we build cybex python lib basing on bitshares python lib. You need first to install bitshares python library.
 Use following command to install bitshares python lib.
 ```Bash
-pip3 install bitshares==0.1.13
+pip3 install graphenelib==0.6.1 bitshares==0.1.13
 ```
 If you have already installed bitshares python library, make sure that you have not made any change on it.
 After bitshares python lib is installed, download patch.sh script and run it. Patch.sh will automatically
